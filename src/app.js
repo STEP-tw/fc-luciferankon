@@ -35,14 +35,14 @@ const logRequest = (req, res, next) => {
   next();
 }
 
-const render = function(req,res, next){
+const renderDependencies = function(req,res, next){
   renderPage(req, res);
   next();
 }
 
 app.use(logRequest);
 app.get("/", renderPage);
-app.use(render);
+app.use(renderDependencies);
 // Export a function that can act as a handler
 
 module.exports = app.handleRequest.bind(app);
