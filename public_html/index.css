@@ -15,3 +15,7 @@ h1 {
   flex-direction: column;
   margin-top: 200px;
 }
+
+img{
+  display: block;
+}

@@ -1,6 +1,7 @@
 const hide = function(){
-  this.style.opacity = 0;
-  setTimeout(()=> this.style.opacity=1,1000);
+  const target = event.target;
+  target.style.visibility = 'hidden';
+  setTimeout(()=> target.style.visibility='visible',1000);
 }
 
 const initialize = function(){
