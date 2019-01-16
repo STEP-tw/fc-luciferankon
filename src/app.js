@@ -1,9 +1,9 @@
 const fs = require("fs");
 
-const redirectHome = { './': './index.html' };
+const redirectHome = { './public_html/': './public_html/index.html' };
 
 const getRequestedFile = function(url){
-  const requestedFile = `.${url}`;
+  const requestedFile = `./public_html${url}`;
   return redirectHome[requestedFile] || requestedFile;
 }
 
