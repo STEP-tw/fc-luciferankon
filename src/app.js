@@ -1,4 +1,6 @@
 const fs = require("fs");
+const Express = require("./express");
+const app = new Express();
 
 const redirectHome = { "./public_html/": "./public_html/index.html" };
 
@@ -13,13 +15,12 @@ const send = function(res, data, statusCode) {
   res.end();
 };
 
-const app = (req, res) => {
+const renderPage = function(req, res) {
   const requestedFile = getRequestedFile(req.url);
-
   fs.readFile(requestedFile, (err, data) => {
     try {
       send(res, data, 200);
-    } catch(error) {
+    } catch (error) {
       if (err.code == "ENOENT") {
         send(res, "FILE_NOT_FOUND", 404);
         return;
@@ -29,6 +30,19 @@ const app = (req, res) => {
   });
 };
 
+const logRequest = (req, res, next) => {
+  console.log(req.method, req.url);
+  next();
+}
+
+const render = function(req,res, next){
+  renderPage(req, res);
+  next();
+}
+
+app.use(logRequest);
+app.get("/", renderPage);
+app.use(render);
 // Export a function that can act as a handler
 
-module.exports = app;
+module.exports = app.handleRequest.bind(app);
