@@ -15,7 +15,7 @@ const send = function(res, data, statusCode) {
   res.end();
 };
 
-const renderPage = function(req, res) {
+const serveFile = function(req, res) {
   const requestedFile = getRequestedFile(req.url);
   fs.readFile(requestedFile, (err, data) => {
     try {
@@ -35,14 +35,14 @@ const logRequest = (req, res, next) => {
   next();
 }
 
-const renderDependencies = function(req,res, next){
-  renderPage(req, res);
-  next();
+const render = function(req, res){
+  send(res, req.url , 200);
 }
 
 app.use(logRequest);
-app.get("/", renderPage);
-app.use(renderDependencies);
+// app.get("/", serveFile);
+// app.get('/app.js',render)
+app.use(serveFile);
 // Export a function that can act as a handler
 
 module.exports = app.handleRequest.bind(app);
