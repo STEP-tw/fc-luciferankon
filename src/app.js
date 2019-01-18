@@ -6,13 +6,20 @@ const ERROR_500 = '500: Internal Server Error';
 const COMMENTS_PLACEHOLDER = '######COMMENTS_GOES_HERE######';
 
 const app = new Express();
-
+let commentsFileContent;
 const redirectHome = { "./public_html/": "./public_html/index.html" };
 
 const getRequestedFile = function(url) {
   const requestedFile = `./public_html${url}`;
   return redirectHome[requestedFile] || requestedFile;
 };
+
+const readCommentFile = function(req, res, next){
+  fs.readFile('private/comments.json',(err, data)=>{
+    commentsFileContent = JSON.parse(data.toString());
+    next();
+  })
+}
 
 const send = function(res, data, statusCode) {
   res.statusCode = statusCode;
@@ -45,14 +52,11 @@ const logRequest = (req, res, next) => {
 };
 
 const saveComment = function(comment, req, res) {
-  fs.appendFile(
-    "./private/comments.json_part",
-    JSON.stringify(comment) + ",",
-    err => {
-      if (err) throw err;
-      serveGuestBookPage(req, res);
-    }
-  );
+  commentsFileContent.push(comment);
+  fs.writeFile('./private/comments.json',JSON.stringify(commentsFileContent),(err)=>{
+    if(err) throw err;
+    serveGuestBookPage(req, res);
+  });
 };
 
 const decodeText = (content) => {
@@ -108,17 +112,16 @@ const displayComments = function(res, commentsData, guestBookHTML){
 }
 
 const serveGuestBookPage = function(req, res) {
-  fs.readFile("private/comments.json_part", (err, data) => {
-    const commentsData = JSON.parse("[" + data.slice(0, -1) + "]");
+    const commentsData = commentsFileContent;
     fs.readFile("private/guest_book.html", (err, data) => {
       if (err) return send(res, ERROR_500, 500);
       displayComments(res, commentsData, data);
-    });
   });
 };
 
 app.use(logRequest);
 app.use(readPostBody);
+app.use(readCommentFile);
 app.post("/guest_book", postComment);
 app.get("/guest_book", serveGuestBookPage);
 app.get('/Abeliophyllum.html',serveFile);
