@@ -1,5 +1,8 @@
 const fs = require("fs");
 const Express = require("./express");
+const ERROR_404 = '404: Resource Not Found';
+const ERROR_500 = '500: Internal Server Error';
+const COMMENTS_PLACEHOLDER = '######COMMENTS_GOES_HERE######';
 
 const app = new Express();
 
@@ -16,17 +19,21 @@ const send = function(res, data, statusCode) {
   res.end();
 };
 
+const isFileNotFound = function(errorCode){
+  return errorCode == 'ENOENT';
+}
+
 const serveFile = function(req, res) {
   const requestedFile = getRequestedFile(req.url);
   fs.readFile(requestedFile, (err, data) => {
     try {
       send(res, data, 200);
     } catch (error) {
-      if (err.code == "ENOENT") {
-        send(res, "FILE_NOT_FOUND", 404);
+      if (isFileNotFound(err.code)) {
+        send(res, ERROR_404, 404);
         return;
       }
-      send(res, "SERVER_INTERNAL_ERROR", 500);
+      send(res, ERROR_500, 500);
     }
   });
 };
@@ -36,13 +43,13 @@ const logRequest = (req, res, next) => {
   next();
 };
 
-const writeCommentToFile = function(comment,req, res) {
+const saveComment = function(comment, req, res) {
   fs.appendFile(
-    "./metadata/comments.json_part",
+    "./private/comments.json_part",
     JSON.stringify(comment) + ",",
     err => {
       if (err) throw err;
-      render(req, res);
+      serveGuestBookPage(req, res);
     }
   );
 };
@@ -59,7 +66,7 @@ const readArgs = text => {
   return args;
 };
 
-const readPostData = (req, res, next) => {
+const readPostBody = (req, res, next) => {
   let content = "";
   req.on("data", chunk => (content += chunk));
   req.on("end", () => {
@@ -72,26 +79,36 @@ const postComment = function(req, res) {
   const commentData = readArgs(req.body);
   const date = new Date().toLocaleString();
   commentData.date = date;
-  writeCommentToFile(commentData, req, res);
+  saveComment(commentData, req, res);
 };
 
-const render = function(req, res) {
-  fs.readFile("metadata/comments.json_part", (err, data) => {
+const createCommentsHTML = function(commentsData) {
+  const commentsHTML = commentsData.map(({ date, name, comment }) => {
+    return `<p>${date}: <strong>${name}</strong> : ${comment}</p>`;
+  });
+  return commentsHTML.reverse().join("\n");
+};
+
+const serveGuestBookPage = function(req, res) {
+  fs.readFile("private/comments.json_part", (err, data) => {
     const commentsData = JSON.parse("[" + data.slice(0, -1) + "]");
-    let upperPart = "";
-    fs.readFile("public_html/guest_book.html", (err, data) => {
-      if (err) throw err;
-      upperPart += data;
-      send(res, upperPart + JSON.stringify(commentsData), 200);
+    fs.readFile("private/guest_book.html", (err, data) => {
+      if (err) return send(res, ERROR_500, 500);
+
+      const commentsHTML = createCommentsHTML(commentsData);
+      const guestBookPage = data
+        .toString()
+        .replace(COMMENTS_PLACEHOLDER, commentsHTML);
+
+      send(res, guestBookPage, 200);
     });
   });
 };
 
 app.use(logRequest);
-app.use(readPostData);
-// app.get("/", serveFile);
+app.use(readPostBody);
 app.post("/guest_book", postComment);
-app.get("/guest_book", render);
+app.get("/guest_book", serveGuestBookPage);
 app.use(serveFile);
 // Export a function that can act as a handler
 
