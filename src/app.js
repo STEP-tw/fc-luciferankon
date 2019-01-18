@@ -99,18 +99,20 @@ const createCommentsHTML = function(commentsData) {
   return commentsHTML.reverse().join("\n");
 };
 
+const displayComments = function(res, commentsData, guestBookHTML){
+  const commentsHTML = createCommentsHTML(commentsData);
+      const guestBookPage = guestBookHTML
+        .toString()
+        .replace(COMMENTS_PLACEHOLDER, commentsHTML);
+      send(res, guestBookPage, 200);
+}
+
 const serveGuestBookPage = function(req, res) {
   fs.readFile("private/comments.json_part", (err, data) => {
     const commentsData = JSON.parse("[" + data.slice(0, -1) + "]");
     fs.readFile("private/guest_book.html", (err, data) => {
       if (err) return send(res, ERROR_500, 500);
-
-      const commentsHTML = createCommentsHTML(commentsData);
-      const guestBookPage = data
-        .toString()
-        .replace(COMMENTS_PLACEHOLDER, commentsHTML);
-
-      send(res, guestBookPage, 200);
+      displayComments(res, commentsData, data);
     });
   });
 };
@@ -119,6 +121,7 @@ app.use(logRequest);
 app.use(readPostBody);
 app.post("/guest_book", postComment);
 app.get("/guest_book", serveGuestBookPage);
+app.get('/Abeliophyllum.html',serveFile);
 app.use(serveFile);
 // Export a function that can act as a handler
 
