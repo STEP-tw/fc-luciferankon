@@ -1,5 +1,6 @@
 const fs = require("fs");
 const Express = require("./express");
+const decodingKeys = require('./decodingKeys.json');
 const ERROR_404 = '404: Resource Not Found';
 const ERROR_500 = '500: Internal Server Error';
 const COMMENTS_PLACEHOLDER = '######COMMENTS_GOES_HERE######';
@@ -54,11 +55,19 @@ const saveComment = function(comment, req, res) {
   );
 };
 
+const decodeText = (content) => {
+  let result = content;
+  Object.keys(decodingKeys).forEach(x => {
+    result = result.replace(new RegExp(`\\${x}`,'g'), decodingKeys[x]);
+  });
+  return result;
+}
+
 const readArgs = text => {
   let args = {};
   const splitKeyValue = pair => pair.split("=");
   const assignKeyValueToArgs = ([key, value]) =>
-    (args[key] = value.replace("+", " "));
+    (args[key] = value);
   text
     .split("&")
     .map(splitKeyValue)
@@ -76,7 +85,8 @@ const readPostBody = (req, res, next) => {
 };
 
 const postComment = function(req, res) {
-  const commentData = readArgs(req.body);
+  let	 commentData = decodeText(req.body);
+  commentData = readArgs(commentData);
   const date = new Date().toLocaleString();
   commentData.date = date;
   saveComment(commentData, req, res);
