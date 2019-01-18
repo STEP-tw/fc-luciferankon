@@ -125,6 +125,7 @@ app.use(readCommentFile);
 app.post("/guest_book", postComment);
 app.get("/guest_book", serveGuestBookPage);
 app.get('/Abeliophyllum.html',serveFile);
+app.get('/Ageratum.html',serveFile);
 app.use(serveFile);
 // Export a function that can act as a handler
 
