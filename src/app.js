@@ -1,9 +1,9 @@
 const fs = require("fs");
 const Express = require("./express");
-const decodingKeys = require('./decodingKeys.json');
-const ERROR_404 = '404: Resource Not Found';
-const ERROR_500 = '500: Internal Server Error';
-const COMMENTS_PLACEHOLDER = '######COMMENTS_GOES_HERE######';
+const decodingKeys = require("./decodingKeys.json");
+const ERROR_404 = "404: Resource Not Found";
+const ERROR_500 = "500: Internal Server Error";
+const COMMENTS_PLACEHOLDER = "######COMMENTS_GOES_HERE######";
 
 const app = new Express();
 let commentsFileContent;
@@ -14,12 +14,15 @@ const getRequestedFile = function(url) {
   return redirectHome[requestedFile] || requestedFile;
 };
 
-const readCommentFile = function(req, res, next){
-  fs.readFile('private/comments.json',(err, data)=>{
-    commentsFileContent = JSON.parse(data.toString());
-    next();
-  })
-}
+const readCommentFile = function(req, res, next) {
+  if (!fs.existsSync('private/comments.json')) {
+    fs.writeFileSync('private/comments.json', "[]", "utf-8");
+  }
+  commentsFileContent = JSON.parse(
+    fs.readFileSync("private/comments.json", "utf-8")
+  );
+  next();
+};
 
 const send = function(res, data, statusCode) {
   res.statusCode = statusCode;
@@ -27,9 +30,9 @@ const send = function(res, data, statusCode) {
   res.end();
 };
 
-const isFileNotFound = function(errorCode){
-  return errorCode == 'ENOENT';
-}
+const isFileNotFound = function(errorCode) {
+  return errorCode == "ENOENT";
+};
 
 const serveFile = function(req, res) {
   const requestedFile = getRequestedFile(req.url);
@@ -53,25 +56,28 @@ const logRequest = (req, res, next) => {
 
 const saveComment = function(comment, req, res) {
   commentsFileContent.push(comment);
-  fs.writeFile('./private/comments.json',JSON.stringify(commentsFileContent),(err)=>{
-    if(err) throw err;
-    serveGuestBookPage(req, res);
-  });
+  fs.writeFile(
+    "./private/comments.json",
+    JSON.stringify(commentsFileContent),
+    err => {
+      if (err) throw err;
+      serveGuestBookPage(req, res);
+    }
+  );
 };
 
-const decodeText = (content) => {
+const decodeText = content => {
   let result = content;
   Object.keys(decodingKeys).forEach(x => {
-    result = result.replace(new RegExp(`\\${x}`,'g'), decodingKeys[x]);
+    result = result.replace(new RegExp(`\\${x}`, "g"), decodingKeys[x]);
   });
   return result;
-}
+};
 
 const readArgs = text => {
   let args = {};
   const splitKeyValue = pair => pair.split("=");
-  const assignKeyValueToArgs = ([key, value]) =>
-    (args[key] = value);
+  const assignKeyValueToArgs = ([key, value]) => (args[key] = value);
   text
     .split("&")
     .map(splitKeyValue)
@@ -89,7 +95,7 @@ const readPostBody = (req, res, next) => {
 };
 
 const postComment = function(req, res) {
-  let	 commentData = decodeText(req.body);
+  let commentData = decodeText(req.body);
   commentData = readArgs(commentData);
   const date = new Date().toLocaleString();
   commentData.date = date;
@@ -103,20 +109,24 @@ const createCommentsHTML = function(commentsData) {
   return commentsHTML.reverse().join("\n");
 };
 
-const displayComments = function(res, commentsData, guestBookHTML){
+const displayComments = function(res, commentsData, guestBookHTML) {
   const commentsHTML = createCommentsHTML(commentsData);
-      const guestBookPage = guestBookHTML
-        .toString()
-        .replace(COMMENTS_PLACEHOLDER, commentsHTML);
-      send(res, guestBookPage, 200);
-}
+  const guestBookPage = guestBookHTML
+    .toString()
+    .replace(COMMENTS_PLACEHOLDER, commentsHTML);
+  send(res, guestBookPage, 200);
+};
 
 const serveGuestBookPage = function(req, res) {
-    const commentsData = commentsFileContent;
-    fs.readFile("private/guest_book.html", (err, data) => {
-      if (err) return send(res, ERROR_500, 500);
-      displayComments(res, commentsData, data);
+  const commentsData = commentsFileContent;
+  fs.readFile("private/guest_book.html", (err, data) => {
+    if (err) return send(res, ERROR_500, 500);
+    displayComments(res, commentsData, data);
   });
+};
+
+const updateComments = function(req, res) {
+  send(res, JSON.stringify(commentsFileContent), 200);
 };
 
 app.use(logRequest);
@@ -124,8 +134,9 @@ app.use(readPostBody);
 app.use(readCommentFile);
 app.post("/guest_book", postComment);
 app.get("/guest_book", serveGuestBookPage);
-app.get('/Abeliophyllum.html',serveFile);
-app.get('/Ageratum.html',serveFile);
+app.get("/Abeliophyllum.html", serveFile);
+app.get("/Ageratum.html", serveFile);
+app.get("/comments", updateComments);
 app.use(serveFile);
 // Export a function that can act as a handler
 
