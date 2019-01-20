@@ -4,6 +4,7 @@ const decodingKeys = require("./decodingKeys.json");
 const ERROR_404 = "404: Resource Not Found";
 const ERROR_500 = "500: Internal Server Error";
 const COMMENTS_PLACEHOLDER = "######COMMENTS_GOES_HERE######";
+const COMMENTS_FILE = "private/comments.json";
 
 const app = new Express();
 let commentsFileContent;
@@ -15,12 +16,10 @@ const getRequestedFile = function(url) {
 };
 
 const readCommentFile = function(req, res, next) {
-  if (!fs.existsSync('private/comments.json')) {
-    fs.writeFileSync('private/comments.json', "[]", "utf-8");
+  if (!fs.existsSync(COMMENTS_FILE)) {
+    fs.writeFileSync(COMMENTS_FILE, "[]", "utf-8");
   }
-  commentsFileContent = JSON.parse(
-    fs.readFileSync("private/comments.json", "utf-8")
-  );
+  commentsFileContent = JSON.parse(fs.readFileSync(COMMENTS_FILE, "utf-8"));
   next();
 };
 
@@ -57,7 +56,7 @@ const logRequest = (req, res, next) => {
 const saveComment = function(comment, req, res) {
   commentsFileContent.push(comment);
   fs.writeFile(
-    "./private/comments.json",
+    "./" + COMMENTS_FILE,
     JSON.stringify(commentsFileContent),
     err => {
       if (err) throw err;
