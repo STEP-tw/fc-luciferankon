@@ -125,7 +125,7 @@ const serveGuestBookPage = function(req, res) {
 };
 
 const updateComments = function(req, res) {
-  send(res, JSON.stringify(commentsFileContent), 200);
+  send(res, createCommentsHTML(commentsFileContent), 200);
 };
 
 app.use(logRequest);
