@@ -21,6 +21,7 @@
   "homepage": "https://github.com/STEP-tw/fc-luciferankon#readme",
   "description": "",
   "dependencies": {
+    "jsdoc": "^3.5.5",
     "nodemon": "^1.18.9"
   }
 }
