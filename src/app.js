@@ -1,5 +1,5 @@
 /**
- * @requires module 
+ * @requires module
  */
 
 const fs = require("fs");
@@ -10,13 +10,21 @@ const decodingKeys = require("./decodingKeys.json");
  */
 const ERROR_404 = "404: Resource Not Found";
 const ERROR_500 = "500: Internal Server Error";
-const COMMENTS_PLACEHOLDER = "######COMMENTS_GOES_HERE######";
 const COMMENTS_FILE = "private/comments.json";
-const REDIRECT_HOME = { "./public_html/": "./public_html/index.html" };
+const COOKIES_FILE = "private/cookies.json";
+const REDIRECT_HOME = { "./": "./index.html" };
 
 const app = new Express();
 /** comments storage */
-let commentsFileContent;
+let comments;
+let cookies;
+const cache = {};
+
+const filesToRead = fs.readdirSync("./public_html");
+filesToRead.forEach(fileName => {
+  const content = fs.readFileSync("./public_html/" + fileName);
+  cache["./" + fileName] = content;
+});
 
 /**
  * @function getRequestedFile - get file path
@@ -24,7 +32,7 @@ let commentsFileContent;
  * @returns {String} - file path
  */
 const getRequestedFile = function(url) {
-  const requestedFile = `./public_html${url}`;
+  const requestedFile = `.${url}`;
   return REDIRECT_HOME[requestedFile] || requestedFile;
 };
 
@@ -39,7 +47,15 @@ const readCommentFile = function(req, res, next) {
   if (!fs.existsSync(COMMENTS_FILE)) {
     fs.writeFileSync(COMMENTS_FILE, "[]", "utf-8");
   }
-  commentsFileContent = JSON.parse(fs.readFileSync(COMMENTS_FILE, "utf-8"));
+  comments = JSON.parse(fs.readFileSync(COMMENTS_FILE, "utf-8"));
+  next();
+};
+
+const readCookiesFile = function(req, res, next) {
+  if (!fs.existsSync(COOKIES_FILE)) {
+    fs.writeFileSync(COOKIES_FILE, "[]", "utf-8");
+  }
+  cookies = JSON.parse(fs.readFileSync(COOKIES_FILE, "utf-8"));
   next();
 };
 
@@ -74,17 +90,16 @@ const isFileNotFound = function(errorCode) {
 
 const serveFile = function(req, res) {
   const requestedFile = getRequestedFile(req.url);
-  fs.readFile(requestedFile, (err, data) => {
-    try {
-      send(res, data, 200);
-    } catch (error) {
-      if (isFileNotFound(err.code)) {
-        send(res, ERROR_404, 404);
-        return;
-      }
-      send(res, ERROR_500, 500);
+  const fileContent = cache[requestedFile];
+  try {
+    send(res, fileContent, 200);
+  } catch (err) {
+    if (isFileNotFound(err.code)) {
+      send(res, ERROR_404, 404);
+      return;
     }
-  });
+    send(res, ERROR_500, 500);
+  }
 };
 
 /**
@@ -107,10 +122,10 @@ const logRequest = (req, res, next) => {
  */
 
 const saveComment = function(comment, req, res) {
-  commentsFileContent.push(comment);
+  comments.push(comment);
   fs.writeFile(
     "./" + COMMENTS_FILE,
-    JSON.stringify(commentsFileContent),
+    JSON.stringify(comments),
     err => {
       if (err) throw err;
       serveGuestBookPage(req, res);
@@ -173,38 +188,39 @@ const readPostBody = (req, res, next) => {
 
 const postComment = function(req, res) {
   let commentData = decodeText(req.body);
+  const cookie = req.headers['cookie'];
+  const name = cookie.split('=')[1];
   commentData = readArgs(commentData);
-  const date = new Date().toLocaleString();
+  const date = new Date();
+  commentData.name = name;
   commentData.date = date;
   saveComment(commentData, req, res);
 };
 
-/**
- * @function createCommentsHTML - create HTML from JSON Object
- * @param {Object} commentsData - JSON file of the comments
- * @returns {String} - the HTML content for comments section
- */
-
-const createCommentsHTML = function(commentsData) {
-  const commentsHTML = commentsData.map(({ date, name, comment }) => {
-    return `<p>${date}: <strong>${name}</strong> : ${comment}</p>`;
+const sendLoginPage = (req, res) => {
+  fs.readFile("private/guest_book_login.html", (err, data) => {
+    send(res, data, 200);
   });
-  return commentsHTML.reverse().join("\n");
 };
 
-/**
- * @function displayComments - display the comments in the page
- * @param {Object} res - response from server
- * @param {Object} commentsData - JSON object of the comments
- * @param {String} guestBookHTML - HTML of the page Guest_Book
- */
+const sendCommentPage = (req, res, cookie) => {
+  const userName = cookie.split('=')[1];
+  fs.readFile("private/guest_book.html", (err, data) => {
+    const commentsPage = data.toString().replace('__NAME_HOLDER__',userName);
+    send(res, commentsPage, 200);
+  });
+};
 
-const displayComments = function(res, commentsData, guestBookHTML) {
-  const commentsHTML = createCommentsHTML(commentsData);
-  const guestBookPage = guestBookHTML
-    .toString()
-    .replace(COMMENTS_PLACEHOLDER, commentsHTML);
-  send(res, guestBookPage, 200);
+const checkCookies = (req, res) => {
+  const cookie = req.headers["cookie"];
+
+  if (!cookie) {
+    sendLoginPage(req, res);
+    return;
+  }
+  if (cookies.includes(cookie)) {
+    sendCommentPage(req, res, cookie);
+  }
 };
 
 /**
@@ -214,11 +230,7 @@ const displayComments = function(res, commentsData, guestBookHTML) {
  */
 
 const serveGuestBookPage = function(req, res) {
-  const commentsData = commentsFileContent;
-  fs.readFile("private/guest_book.html", (err, data) => {
-    if (err) return send(res, ERROR_500, 500);
-    displayComments(res, commentsData, data);
-  });
+  checkCookies(req, res);
 };
 
 /**
@@ -228,14 +240,42 @@ const serveGuestBookPage = function(req, res) {
  */
 
 const updateComments = function(req, res) {
-  send(res, createCommentsHTML(commentsFileContent), 200);
+  send(res, JSON.stringify(comments), 200);
 };
 
+const doNothing = () => {};
+
+const readCookies = (req, res, name) => {
+  const cookie = `userName=${name}`;
+  res.setHeader("Set-Cookie", cookie);
+  if (!cookies.includes(cookie)) {
+    cookies.push(cookie);
+    fs.writeFile("./private/cookies.json", JSON.stringify(cookies), doNothing);
+  }
+  sendCommentPage(req, res, cookie);
+};
+
+const handleLogout = function(req, res){
+  const currentCookie = req.headers['cookie'];
+  cookies = cookies.filter(cookie => cookie!=currentCookie);
+  fs.writeFile('private/cookies.json', JSON.stringify(cookies), doNothing);
+  res.setHeader('Set-Cookie','userName=;expires=Thu, 01 Jan 1970 00:00:01 GMT;');
+  sendLoginPage(req, res);
+}
+
+const renderGuestBook = function(req, res) {
+  const userName = req.body;
+  readCookies(req, res, userName);
+};
+
+app.use(readCommentFile);
+app.use(readCookiesFile);
 app.use(logRequest);
 app.use(readPostBody);
-app.use(readCommentFile);
 app.post("/guest_book", postComment);
 app.get("/guest_book", serveGuestBookPage);
+app.post("/guest_book_home", renderGuestBook);
+app.post('/logout',handleLogout);
 app.get("/Abeliophyllum.html", serveFile);
 app.get("/Ageratum.html", serveFile);
 app.get("/comments", updateComments);

@@ -16,6 +16,12 @@ h1 {
   margin-top: 200px;
 }
 
-img{
+img {
   display: block;
+}
+
+.heading {
+  text-align: center;
+  color: orange;
+  font-size: 40px;
 }

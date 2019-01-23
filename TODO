@@ -1,3 +1,8 @@
 * DONE make html page
 * DONE develop app page to host the page
-* TODO use get request inspite of post
+* DONE use get request inspite of post
+* DONE have static pages in memory
+* DONE create a html page for login
+* TODO when login is clicked render the guest book page
+* TODO handle login authentication
+* DONE render image in flowers page
